@@ -39,18 +39,23 @@ def main
     puts USAGE
     exit false
   end
-
-  evdev = EventDevice.new ARGV.first
-  puts "## Device Name: #{evdev.device_name}"
+  
+  file = File.new ARGV.first, 'r+' 
+  evdev = EventDevice.new file
+  # puts "## Device Name: #{evdev.device_name}"
   puts "spec_type: #{spec_type}" if $DEBUG
+  
+  c_grab = 1074021776
 
   trap :INT do
     puts "# recieve :INT"
-    evdev.ungrab if is_grab
+    # evdev.ungrab if is_grab
+    file.ioctl c_grab, 0 if is_grab
     exit true
   end
 
-  evdev.grab if is_grab
+  file.ioctl c_grab, 1 if is_grab
+  #evdev.grab if is_grab
 
   loop do
     ie = evdev.read_input_event
