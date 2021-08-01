@@ -14,9 +14,6 @@ example:
     $ #{$0} /dev/input/event2
 
 options:
-  -t EV_XXX, --type EV_XXX:
-      restrict event type (EV_XXX) to display
-
   -g, --grab:
       grab event.
 __EOF
@@ -27,9 +24,6 @@ def main
   spec_type = nil
   is_grab = false
   OptionParser.new do |opt|
-    opt.on '-t TYPE', '--type TYPE', String do |type|
-      spec_type = type
-    end
     opt.on '-g', '--grab' do
       is_grab = true
     end
@@ -99,7 +93,6 @@ def main
 
   loop do
     ie = evdev.read_input_event
-    next if spec_type and spec_type != ie.hr_type.to_s
     t = ie.hr_type ? "#{ie.hr_type.to_s}(#{ie.type})" : ie.type
     c = ie.hr_code ? "#{ie.hr_code.to_s}(#{ie.code})" : ie.code
     v = ie.hr_value ? "#{ie.hr_value.to_s}(#{ie.value})" : ie.value

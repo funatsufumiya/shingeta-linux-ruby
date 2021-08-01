@@ -13,9 +13,6 @@ example:
     $ #{$0} /dev/input/event2
 
 options:
-  -t EV_XXX, --type EV_XXX:
-      restrict event type (EV_XXX) to display
-
   -g, --grab:
       grab event.
 __EOF
@@ -26,9 +23,6 @@ def main
   spec_type = nil
   is_grab = false
   OptionParser.new do |opt|
-    opt.on '-t TYPE', '--type TYPE', String do |type|
-      spec_type = type
-    end
     opt.on '-g', '--grab' do
       is_grab = true
     end
