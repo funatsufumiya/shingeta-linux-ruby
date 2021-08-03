@@ -24,6 +24,52 @@ options:
       grab event or not. (Default: true)
 __EOF
 
+
+$valid_letters = "ぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろわをんヴ、。゛゜「」ー・
+！”＃＄％＆’（）＊＋，－．／０１２３４５６７８９：；＜＝＞？＠ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ［￥］＾＿｀‘ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ｛｜｝～
+逃入空後消挿上左右下家終前次無"
+
+def parse_yamabuki_line line, line_num
+  lst = []
+  s = line
+  n = s.length
+  i = 0
+  while i < n
+    if s[i] == "'" and s[i+2] == "'" and (s[i+3] == ',' or s[i+3] == nil)
+      lst.push (s[i+1])
+      i += 4
+    elsif $valid_letters.include?(s[i]) and (s[i+1] == ',' or s[i+1] == nil)
+      lst.push s[i]
+      i += 2
+    elsif $valid_letters.include?(s[i]) and $valid_letters.include?(s[i+1])
+      _s = s[i]
+      _i = i + 1
+      while true
+        if $valid_letters.include?(s[_i])
+          _s += s[_i]
+          _i += 1
+        elsif s[_i] == ',' or s[_i] == nil
+          _i += 1
+          break
+        else
+          STDERR.puts "Yamabuki Setting Parse Error: line #{line_num+1}, col #{_i+1}"
+          exit 1
+        end
+      end
+      lst.push _s
+      i += (_i - i)
+    else
+      # p lst
+      # p s[i]
+      # p s[i+1]
+      STDERR.puts "Yamabuki Setting Parse Error: line #{line_num+1}, col #{i+1}"
+      exit 1
+    end
+  end
+
+  lst
+end
+
 def parse_yamabuki_setting lst
   romaji_maps =
     {"ローマ字シフト無し" => :NO_SHIFT,
@@ -39,14 +85,11 @@ def parse_yamabuki_setting lst
     "英数小指シフト" => :SHIFT}
   eisu_labels = eisu_maps.keys
 
-  valid_letters = "ぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろわをんヴ、。゛゜「」ー・
-  ！”＃＄％＆’（）＊＋，－．／０１２３４５６７８９：；＜＝＞？＠ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ［￥］＾＿｀‘ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ｛｜｝～
-  逃入空後消挿上左右下家終前次無"
-
-  fn_label = ""
+  result = {}
   fn_mode = nil
   fn_mode_type = nil
   fn_line_num = 0
+  fn_lst = []
   key_label = ""
 
   lst.each_with_index do |s, i|
@@ -55,6 +98,11 @@ def parse_yamabuki_setting lst
     end
 
     if fn_mode != nil and fn_line_num > 3
+      if result[fn_mode].nil?
+        result[fn_mode] = {}
+      end
+      result[fn_mode][fn_mode_type] = fn_lst
+      fn_lst = []
       fn_mode = nil
     end
 
@@ -62,33 +110,44 @@ def parse_yamabuki_setting lst
       if m = s.match(/^\[(.*)\]$/)
         lbl = m[1]
         if romaji_labels.include?(lbl)
-          fn_label = lbl
           fn_mode = :ROMAJI
           fn_mode_type = romaji_maps[lbl]
         elsif eisu_labels.include?(lbl)
-          fn_label = lbl
           fn_mode = :EISU
           fn_mode_type = eisu_maps[lbl]
         else
-          STDERR.puts "Yamabuki Setting Parse Error: line #{i}"
+          STDERR.puts "Yamabuki Setting Parse Error: line #{i+1}"
           exit 1
         end
 
-        fn_label = lbl
         fn_line_num = 0
-      elsif s =~ /^<.*>$/
+      elsif m = s.match(/^<(.)>$/) # FIXME
+        lbl = m[1]
+        fn_mode = :ROMAJI
+        fn_mode_type = lbl.to_sym
+        fn_line_num = 0
       else
-        STDERR.puts "Yamabuki Setting Parse Error: line #{i}"
+        STDERR.puts "Yamabuki Setting Parse Error: line #{i+1}"
         exit 1
       end
     else
-
+      fn_lst.push (parse_yamabuki_line s, fn_line_num + i)
+      fn_line_num += 1
     end
 
-    puts s
+    # puts s
   end
 
-  []
+  if fn_mode != nil and fn_line_num > 3
+    if result[fn_mode].nil?
+      result[fn_mode] = {}
+    end
+    result[fn_mode][fn_mode_type] = fn_lst
+    fn_lst = []
+    fn_mode = nil
+  end
+
+  result
 end
 
 def main
@@ -128,8 +187,7 @@ def main
     lst = file.read.split("\n")
   end
 
-  p parse_yamabuki_setting(lst)
-  exit
+  yamabuki_setting = parse_yamabuki_setting(lst)
 
   ufile = File.open(uinput_device_path, Fcntl::O_WRONLY | Fcntl::O_NDELAY)
 
