@@ -150,7 +150,96 @@ def parse_yamabuki_setting lst
   result
 end
 
-def prosess_key(ie, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana)
+$yamabuki_key_str_pos_map = {
+  :KEY_1 => [0, 0],
+  :KEY_2 => [0, 1],
+  :KEY_3 => [0, 2],
+  :KEY_4 => [0, 3],
+  :KEY_5 => [0, 4],
+  :KEY_6 => [0, 5],
+  :KEY_7 => [0, 6],
+  :KEY_8 => [0, 7],
+  :KEY_9 => [0, 8],
+  :KEY_0 => [0, 9],
+  :KEY_MINUS => [0, 10],
+  :KEY_EQUAL => [0, 11],
+  :KEY_YEN => [0, 12],
+  :KEY_Q => [1, 0],
+  :KEY_W => [1, 1],
+  :KEY_E => [1, 2],
+  :KEY_R => [1, 3],
+  :KEY_T => [1, 4],
+  :KEY_Y => [1, 5],
+  :KEY_U => [1, 6],
+  :KEY_I => [1, 7],
+  :KEY_O => [1, 8],
+  :KEY_P => [1, 9],
+  :KEY_LEFTBRACE => [1, 10],
+  :KEY_RIGHTBRACE => [1, 11],
+  :KEY_A => [2, 0],
+  :KEY_S => [2, 1],
+  :KEY_D => [2, 2],
+  :KEY_F => [2, 3],
+  :KEY_G => [2, 4],
+  :KEY_H => [2, 5],
+  :KEY_J => [2, 6],
+  :KEY_K => [2, 7],
+  :KEY_L => [2, 8],
+  :KEY_SEMICOLON => [2, 9],
+  :KEY_APOSTROPHE => [2, 10],
+  :KEY_BACKSLASH => [2, 11],
+  :KSLASH => [3, 0],
+  :KEY_X => [3, 1],
+  :KEY_C => [3, 2],
+  :KEY_V => [3, 3],
+  :KEY_B => [3, 4],
+  :KEY_N => [3, 5],
+  :KEY_M => [3, 6],
+  :KEY_COMMA => [3, 7],
+  :KEY_DOT => [3, 8],
+  :KEY_SLASH => [3, 9],
+  :KEY_RO => [3, 10],
+}
+
+def get_yamabuki_key_str_pos(hr_code)
+  $yamabuki_key_str_pos_map[hr_code]
+end
+
+def get_yamabuki_key_str(ie, fn_mode, fn_mode_type, yamabuki_setting)
+  pos = get_yamabuki_key_str_pos(ie.hr_code)
+  if pos.nil?
+    nil
+  else
+    yamabuki_setting[fn_mode][fn_mode_type][pos[0]][pos[1]]
+  end
+end
+
+def prosess_yamabuki_key(ie, fn_mode, fn_mode_type, yamabuki_setting)
+  key_str = get_yamabuki_key_str(ie, fn_mode, fn_mode_type, yamabuki_setting)
+  p key_str
+  # do nothing
+end
+
+def prosess_key(ie, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
+  if is_ctrl
+    return false
+  else
+    is_shift = is_left_shift or is_right_shift
+
+    fn_mode_type = :NO_SHIFT
+    if is_shift and !(is_left_oya_shift or is_right_oya_shift)
+      fn_mode_type = :SHIFT
+    elsif is_left_oya_shift
+      fn_mode_type = :LEFT_OYA_SHIFT
+    elsif is_right_oya_shift
+      fn_mode_type = :RIGHT_OYA_SHIFT
+    end
+
+    fn_mode = is_kana ? :ROMAJI : :EISU
+
+    prosess_yamabuki_key(ie, fn_mode, fn_mode_type, yamabuki_setting)
+  end
+
   false
 end
 
@@ -281,8 +370,8 @@ def main
       elsif ie.hr_code == :KEY_LEFTALT or ie.hr_code == :KEY_RIGHTALT
         is_alt = ( ie.value == 1 )
       else
-        has_processed_key_flag = prosess_key(ie, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana)
-        puts "type:#{t}	code:#{c}	value:#{v}"
+        has_processed_key_flag = prosess_key(ie, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
+        # puts "type:#{t}	code:#{c}	value:#{v}"
       end
 
       if ie.hr_code == :KEY_C and ie.value == 1 and is_ctrl and is_alt and (is_left_shift or is_right_shift)
