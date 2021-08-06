@@ -150,6 +150,10 @@ def parse_yamabuki_setting lst
   result
 end
 
+def prosess_key(ie, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana)
+  false
+end
+
 def main
   include Revdev
 
@@ -244,6 +248,13 @@ def main
   #evdev.grab if is_grab
 
   is_ctrl = false
+  is_left_shift = false
+  is_right_shift = false
+  is_left_oya_shift = false
+  is_right_oya_shift = false
+  is_alt = false
+  
+  is_kana = false
 
   loop do
     ie = evdev.read_input_event
@@ -252,27 +263,44 @@ def main
     v = ie.hr_value ? "#{ie.hr_value.to_s}(#{ie.value})" : ie.value
     #puts "type:#{t}	code:#{c}	value:#{v}"
 
-    # if 30 <= ie.code and ie.code <= 56
-      uinput_write_input_event.call ie
-      puts "type:#{t}	code:#{c}	value:#{v}"
-    # end
-
     if ie.hr_type == :EV_KEY
+
+      has_processed_key_flag = false
       
       # if ie.hr_code == 
       if ie.hr_code == :KEY_LEFTCTRL or ie.hr_code == :KEY_RIGHTCTRL
-        is_ctrl = ( ie.value == 1 ) 
-      elsif ie.hr_code == :KEY_C and ie.value == 1 and is_ctrl
-        puts "Ctrl-C pressed!"
-        destroy.call
+        is_ctrl = ( ie.value == 1 )
+      elsif ie.hr_code == :KEY_LEFTSHIFT
+        is_left_shift = ( ie.value == 1 )
+      elsif ie.hr_code == :KEY_RIGHTSHIFT
+        is_right_shift = ( ie.value == 1 )
+      elsif ie.hr_code == :KEY_MUHENKAN
+        is_left_oya_shift = ( ie.value == 1 )
+      elsif ie.hr_code == :KEY_HENKAN
+        is_right_oya_shift = ( ie.value == 1 )
+      elsif ie.hr_code == :KEY_LEFTALT or ie.hr_code == :KEY_RIGHTALT
+        is_alt = ( ie.value == 1 )
       else
-        if 30 <= ie.code and ie.code <= 56
-          uinput_write_input_event.call ie
-        end
-        # puts "type:#{t}	code:#{c}	value:#{v}"
+        has_processed_key_flag = prosess_key(ie, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana)
+        puts "type:#{t}	code:#{c}	value:#{v}"
       end
 
+      if ie.hr_code == :KEY_C and ie.value == 1 and is_ctrl and is_alt and (is_left_shift or is_right_shift)
+        puts "Ctrl-Alt-Shift-C pressed!"
+        destroy.call
+        has_processed_key_flag = false
+      end
+
+      if has_processed_key_flag == false
+        uinput_write_input_event.call ie
+      end
+
+    else
+      uinput_write_input_event.call ie
     end
+
+    # uinput_write_input_event.call ie
+    # puts "type:#{t}	code:#{c}	value:#{v}"
 
   end
 
