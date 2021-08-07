@@ -263,7 +263,7 @@ $yamabuki_key_str_pos_map = {
   :KEY_SEMICOLON => [2, 9],
   :KEY_APOSTROPHE => [2, 10],
   :KEY_BACKSLASH => [2, 11],
-  :KSLASH => [3, 0],
+  :KEY_Z => [3, 0],
   :KEY_X => [3, 1],
   :KEY_C => [3, 2],
   :KEY_V => [3, 3],
@@ -298,39 +298,48 @@ def get_revdev_code(hr_code)
 end
 
 def prosess_yamabuki_key(ie, fn_mode, fn_mode_type, yamabuki_setting)
+  has_processed = false
+
   key_str = get_yamabuki_key_str(ie, fn_mode, fn_mode_type, yamabuki_setting)
   unless key_str.nil?
-    key_str0 = key_str[0] # FIXME
-    s0 = zen_to_han(key_str0)
-    hr_code = $yamabuki_key_map[s0.to_sym]
+    key_list = key_str.chars
 
-    # p hr_code
-    unless hr_code.nil?
-      is_shift_internal = false
+    p key_list
 
-      if hr_code.instance_of?(Array)
-        is_shift_internal = true
-        hr_code = hr_code[0]
-      end
+    key_list.each do |key|
+      # p key
+      s0 = zen_to_han(key)
+      # p s0
+      hr_code = $yamabuki_key_map[s0.to_sym]
 
-      code = get_revdev_code(hr_code)
+      # p hr_code
+      unless hr_code.nil?
+        is_shift_internal = false
 
-      unless code.nil?
-        # p code
+        if hr_code.instance_of?(Array)
+          is_shift_internal = true
+          hr_code = hr_code[0]
+        end
 
-        press_shift if is_shift_internal
-        
-        ie.code = code
-        uinput_write_input ie
+        code = get_revdev_code(hr_code)
 
-        release_shift if is_shift_internal
+        unless code.nil?
+          # p code
 
-        return true
+          press_shift if is_shift_internal
+          
+          ie.code = code
+          uinput_write_input ie
+
+          release_shift if is_shift_internal
+
+          has_processed = true
+        end
       end
     end
   end
 
-  false
+  return has_processed
 end
 
 def prosess_key(ie, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
@@ -492,7 +501,8 @@ def main
   is_right_oya_shift = false
   is_alt = false
   
-  is_kana = false
+  # is_kana = false
+  is_kana = true
 
   loop do
     ie = evdev.read_input_event
