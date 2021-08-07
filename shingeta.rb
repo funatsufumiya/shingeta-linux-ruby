@@ -249,6 +249,10 @@ $yamabuki_key_map = {
   :"_" => [:KEY_RO],
   :"後" => :KEY_BACKSPACE,
   :"入" => :KEY_ENTER,
+  :"左" => :KEY_LEFT,
+  :"右" => :KEY_RIGHT,
+  :"上" => :KEY_UP,
+  :"下" => :KEY_DOWN,
   :"無" => :NOTHING,
 }
 
