@@ -188,6 +188,41 @@ $yamabuki_key_map = {
   :"7" => :KEY_7,
   :"8" => :KEY_8,
   :"9" => :KEY_9,
+  :"!" => [:KEY_1],
+  :"\"" => [:KEY_2],
+  :"#" => [:KEY_3],
+  :"$" => [:KEY_4],
+  :"%" => [:KEY_5],
+  :"&" => [:KEY_6],
+  :"'" => [:KEY_7],
+  :"(" => [:KEY_8],
+  :")" => [:KEY_9],
+  :"-" => :KEY_MINUS,
+  :"=" => [:KEY_MINUS],
+  :"^" => :KEY_EQUAL,
+  :"~" => [:KEY_EQUAL],
+  :"\\" => :KEY_YEN,
+  :"\¥" => :KEY_YEN,
+  :"|" => [:KEY_YEN],
+  :"@" => :KEY_LEFTBRACE,
+  :"`" => [:KEY_LEFTBRACE],
+  :"[" => :KEY_RIGHTBRACE,
+  :"{" => [:KEY_RIGHTBRACE],
+  :";" => :KEY_SEMICOLON,
+  :"+" => [:KEY_SEMICOLON],
+  :":" => :KEY_APOSTROPHE,
+  :"*" => [:KEY_APOSTROPHE],
+  :"]" => :KEY_BACKSLASH,
+  :"}" => [:KEY_BACKSLASH],
+  :"," => :KEY_COMMA,
+  :"<" => [:KEY_COMMA],
+  :"." => :KEY_DOT,
+  :">" => [:KEY_DOT],
+  :"/" => :KEY_SLASH,
+  :"?" => [:KEY_SLASH],
+  :"_" => [:KEY_RO],
+  :"後" => :KEY_BACKSPACE,
+  :"入" => :KEY_ENTER,
 }
 
 $yamabuki_key_str_pos_map = {
@@ -265,14 +300,33 @@ end
 def prosess_yamabuki_key(ie, fn_mode, fn_mode_type, yamabuki_setting)
   key_str = get_yamabuki_key_str(ie, fn_mode, fn_mode_type, yamabuki_setting)
   unless key_str.nil?
-    key_str0 = key_str[0]
+    key_str0 = key_str[0] # FIXME
     s0 = zen_to_han(key_str0)
     hr_code = $yamabuki_key_map[s0.to_sym]
-    code = get_revdev_code(hr_code)
-    unless code.nil?
-      ie.code = code
-      uinput_write_input ie
-      return true
+
+    # p hr_code
+    unless hr_code.nil?
+      is_shift_internal = false
+
+      if hr_code.instance_of?(Array)
+        is_shift_internal = true
+        hr_code = hr_code[0]
+      end
+
+      code = get_revdev_code(hr_code)
+
+      unless code.nil?
+        # p code
+
+        press_shift if is_shift_internal
+        
+        ie.code = code
+        uinput_write_input ie
+
+        release_shift if is_shift_internal
+
+        return true
+      end
     end
   end
 
@@ -312,6 +366,28 @@ def uinput_write_input(ie)
   event[:code] = ie.code
   event[:value] = ie.value
   $uinput_file.syswrite(event.pointer.read_bytes(event.size))
+end
+
+def uinput_write(type, code, value)
+  event = LinuxInput::InputEvent.new
+  event[:time] = LinuxInput::Timeval.new
+  event[:time][:tv_sec] = Time.now.to_i
+  event[:type] = type
+  event[:code] = code
+  event[:value] = value
+  $uinput_file.syswrite(event.pointer.read_bytes(event.size))
+end
+
+def press_shift()
+  uinput_write(Revdev::EV_KEY, Revdev::KEY_LEFTSHIFT, 1)
+  uinput_write(Revdev::EV_SYN, Revdev::SYN_REPORT, 0)
+  uinput_write(Revdev::EV_MSC, Revdev::MSC_SCAN, 11)
+end
+
+def release_shift()
+  uinput_write(Revdev::EV_KEY, Revdev::KEY_LEFTSHIFT, 0)
+  uinput_write(Revdev::EV_SYN, Revdev::SYN_REPORT, 0)
+  uinput_write(Revdev::EV_MSC, Revdev::MSC_SCAN, 11)
 end
 
 def main
@@ -380,7 +456,7 @@ def main
   
   c_grab = 1074021776
 
-  destroy = lambda do
+  destroy = lambda do |arg|
     # evdev.ungrab if is_grab
     efile.ioctl c_grab, 0 if is_grab
     puts "ungrab" if is_grab
@@ -434,12 +510,16 @@ def main
         is_ctrl = ( ie.value == 1 )
       elsif ie.hr_code == :KEY_LEFTSHIFT
         is_left_shift = ( ie.value == 1 )
+        has_processed_key_flag = true
       elsif ie.hr_code == :KEY_RIGHTSHIFT
         is_right_shift = ( ie.value == 1 )
+        has_processed_key_flag = true
       elsif ie.hr_code == :KEY_MUHENKAN
         is_left_oya_shift = ( ie.value == 1 )
+        has_processed_key_flag = true
       elsif ie.hr_code == :KEY_HENKAN
         is_right_oya_shift = ( ie.value == 1 )
+        has_processed_key_flag = true
       elsif ie.hr_code == :KEY_LEFTALT or ie.hr_code == :KEY_RIGHTALT
         is_alt = ( ie.value == 1 )
       else
