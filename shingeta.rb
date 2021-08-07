@@ -4,6 +4,7 @@
 require "revdev"
 require "optparse"
 require "uinput"
+require "nkf"
 
 USAGE = <<__EOF
 usage:
@@ -150,6 +151,45 @@ def parse_yamabuki_setting lst
   result
 end
 
+$yamabuki_key_map = {
+  :a => :KEY_A,
+  :b => :KEY_B,
+  :c => :KEY_C,
+  :d => :KEY_D,
+  :e => :KEY_E,
+  :f => :KEY_F,
+  :g => :KEY_G,
+  :h => :KEY_H,
+  :i => :KEY_I,
+  :j => :KEY_J,
+  :k => :KEY_K,
+  :l => :KEY_L,
+  :m => :KEY_M,
+  :n => :KEY_N,
+  :o => :KEY_O,
+  :p => :KEY_P,
+  :q => :KEY_Q,
+  :r => :KEY_R,
+  :s => :KEY_S,
+  :t => :KEY_T,
+  :u => :KEY_U,
+  :v => :KEY_V,
+  :w => :KEY_W,
+  :x => :KEY_X,
+  :y => :KEY_Y,
+  :z => :KEY_Z,
+  :"0" => :KEY_0,
+  :"1" => :KEY_1,
+  :"2" => :KEY_2,
+  :"3" => :KEY_3,
+  :"4" => :KEY_4,
+  :"5" => :KEY_5,
+  :"6" => :KEY_6,
+  :"7" => :KEY_7,
+  :"8" => :KEY_8,
+  :"9" => :KEY_9,
+}
+
 $yamabuki_key_str_pos_map = {
   :KEY_1 => [0, 0],
   :KEY_2 => [0, 1],
@@ -214,10 +254,29 @@ def get_yamabuki_key_str(ie, fn_mode, fn_mode_type, yamabuki_setting)
   end
 end
 
+def zen_to_han(s)
+  NKF.nkf('-w -Z4 -x', s)
+end
+
+def get_revdev_code(hr_code)
+  Revdev::REVERSE_MAPS[:KEY].key hr_code
+end
+
 def prosess_yamabuki_key(ie, fn_mode, fn_mode_type, yamabuki_setting)
   key_str = get_yamabuki_key_str(ie, fn_mode, fn_mode_type, yamabuki_setting)
-  p key_str
-  # do nothing
+  unless key_str.nil?
+    key_str0 = key_str[0]
+    s0 = zen_to_han(key_str0)
+    hr_code = $yamabuki_key_map[s0.to_sym]
+    code = get_revdev_code(hr_code)
+    unless code.nil?
+      ie.code = code
+      uinput_write_input ie
+      return true
+    end
+  end
+
+  false
 end
 
 def prosess_key(ie, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
@@ -237,10 +296,22 @@ def prosess_key(ie, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, i
 
     fn_mode = is_kana ? :ROMAJI : :EISU
 
-    prosess_yamabuki_key(ie, fn_mode, fn_mode_type, yamabuki_setting)
+    return prosess_yamabuki_key(ie, fn_mode, fn_mode_type, yamabuki_setting)
   end
 
   false
+end
+
+$uinput_file = nil
+
+def uinput_write_input(ie)
+  event = LinuxInput::InputEvent.new
+  event[:time] = LinuxInput::Timeval.new
+  event[:time][:tv_sec] = Time.now.to_i
+  event[:type] = ie.type
+  event[:code] = ie.code
+  event[:value] = ie.value
+  $uinput_file.syswrite(event.pointer.read_bytes(event.size))
 end
 
 def main
@@ -323,15 +394,17 @@ def main
   trap :INT, &destroy
   trap :TERM, &destroy
 
-  uinput_write_input_event = lambda do |ie|
-    event = LinuxInput::InputEvent.new
-    event[:time] = LinuxInput::Timeval.new
-    event[:time][:tv_sec] = Time.now.to_i
-    event[:type] = ie.type
-    event[:code] = ie.code
-    event[:value] = ie.value
-    ufile.syswrite(event.pointer.read_bytes(event.size))
-  end
+  $uinput_file = ufile
+
+  # uinput_write_input_event = lambda do |ie|
+  #   event = LinuxInput::InputEvent.new
+  #   event[:time] = LinuxInput::Timeval.new
+  #   event[:time][:tv_sec] = Time.now.to_i
+  #   event[:type] = ie.type
+  #   event[:code] = ie.code
+  #   event[:value] = ie.value
+  #   ufile.syswrite(event.pointer.read_bytes(event.size))
+  # end
 
   efile.ioctl c_grab, 1 if is_grab
   #evdev.grab if is_grab
@@ -381,11 +454,11 @@ def main
       end
 
       if has_processed_key_flag == false
-        uinput_write_input_event.call ie
+        uinput_write_input ie
       end
 
     else
-      uinput_write_input_event.call ie
+      uinput_write_input ie
     end
 
     # uinput_write_input_event.call ie
