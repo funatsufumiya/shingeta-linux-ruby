@@ -308,42 +308,60 @@ def get_yamabuki_key_str_pos(hr_code)
 end
 
 def get_yamabuki_key_str(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_setting)
-  if ie.hr_code != holding_key_code
-    if holding_key_code and fn_mode == :ROMAJI
-      pos = get_yamabuki_key_str_pos(ie.hr_code)
-      layer = $yamabuki_key_map.key holding_key_code
+  if ie.hr_code != holding_key_code and holding_key_code and fn_mode == :ROMAJI
 
-      # print "layer = "
-      # p layer
-      # p holding_key_code
+    pos = get_yamabuki_key_str_pos(ie.hr_code)
+    layer = $yamabuki_key_map.key holding_key_code
 
-      unless layer.nil? and pos.nil?
-        if yamabuki_setting[fn_mode][layer]
-          key_str = yamabuki_setting[fn_mode][layer][pos[0]][pos[1]]
-          return key_str if (not key_str.nil? and key_str != "無")
-        end
-      end
+    # print "layer = "
+    # p layer
+    # p holding_key_code
 
-      # NOTE: Check Inverted Layer
-      pos = get_yamabuki_key_str_pos(holding_key_code)
-      layer = $yamabuki_key_map.key ie.hr_code
-
-      unless layer.nil? and pos.nil?
-        if yamabuki_setting[fn_mode][layer]
-          key_str = yamabuki_setting[fn_mode][layer][pos[0]][pos[1]]
-          return key_str if (not key_str.nil? and key_str != "無")
-        end
+    unless layer.nil? and pos.nil?
+      if yamabuki_setting[fn_mode][layer]
+        key_str = yamabuki_setting[fn_mode][layer][pos[0]][pos[1]]
+        return key_str if (not key_str.nil? and key_str != "無")
       end
     end
-  end
 
-  pos = get_yamabuki_key_str_pos(ie.hr_code)
-  if pos.nil?
-    nil
+    # NOTE: Check Inverted Layer
+    pos = get_yamabuki_key_str_pos(holding_key_code)
+    layer = $yamabuki_key_map.key ie.hr_code
+
+    unless layer.nil? and pos.nil?
+      if yamabuki_setting[fn_mode][layer]
+        key_str = yamabuki_setting[fn_mode][layer][pos[0]][pos[1]]
+        return key_str if (not key_str.nil? and key_str != "無")
+      end
+    end
+
+    pos1 = get_yamabuki_key_str_pos(holding_key_code)
+    s1 = ""
+    if pos1.nil?
+    else
+      ss = yamabuki_setting[fn_mode][fn_mode_type]
+      s1 = ss[pos1[0]][pos1[1]] if (not ss.nil?)
+    end
+
+    pos2 = get_yamabuki_key_str_pos(ie.hr_code)
+    s2 = ""
+    if pos2.nil?
+    else
+      ss = yamabuki_setting[fn_mode][fn_mode_type]
+      s2 = ss[pos2[0]][pos2[1]] if (not ss.nil?)
+    end
+
+    return s1 + s2
   else
-    ss = yamabuki_setting[fn_mode][fn_mode_type]
-    return ss[pos[0]][pos[1]] if (not ss.nil?)
-    nil
+
+    pos = get_yamabuki_key_str_pos(ie.hr_code)
+    if pos.nil?
+      return nil
+    else
+      ss = yamabuki_setting[fn_mode][fn_mode_type]
+      return ss[pos[0]][pos[1]] if (not ss.nil?)
+      return nil
+    end
   end
 end
 
@@ -621,8 +639,9 @@ def main
   holding_check_span = 0.05
 
   holding_key_code = nil
+  holding_key_code_prev = nil
+  holding_prev_has_been_processed = false
   holding_started_time = Time.now - 9999
-  holding_ended_time = nil
   holding_combination_has_processed = false
 
   loop do
@@ -692,32 +711,15 @@ def main
           current_key_code = ie.hr_code
           current_key_state = ie.value
 
-          if (not holding_key_code.nil?) and (not holding_ended_time.nil?)
-            if Time.now - holding_started_time > holding_check_span
-              puts "( holding ended )" if $is_debug_verbose
-              has_processed_key_flag = true
-              holding_key_code = nil
-              holding_started_time = nil
-              holding_ended_time = nil
-              holding_combination_has_processed = false
-              next
-            else
-              if $is_debug_verbose
-                print "( holding time = "
-                print Time.now - holding_started_time
-                print " )"
-                puts
-              end
-            end
-          end
-
           if current_key_state == 1 and (not holding_key_code)
             holding_key_code = nil
             holding_started_time = nil
-            holding_ended_time = nil
             holding_combination_has_processed = false
 
+            holding_prev_has_been_processed = false
+
             holding_key_code = ie.hr_code
+            holding_key_code_prev = holding_key_code
             holding_started_time = Time.now
 
             if $is_debug_verbose
@@ -730,8 +732,6 @@ def main
             next
           end
 
-          # if current_key_state == 0 or ( current_key_state == 1 and (not holding_combination_has_processed) )
-          
           _holding_key_code = (not holding_combination_has_processed) ? holding_key_code : nil
 
           unless holding_key_code.nil?
@@ -757,35 +757,31 @@ def main
           if holding_key_code and current_key_code != holding_key_code and current_key_state == 0
             holding_key_code = nil
             holding_started_time = nil
-            holding_ended_time = nil
             holding_combination_has_processed = false
             puts "( holding ended )" if $is_debug_verbose
           end
 
-          if current_key_state == 0 and not (holding_key_code and current_key_code == holding_key_code )
+          if current_key_state == 0 and not holding_key_code and holding_key_code_prev == current_key_code and not holding_prev_has_been_processed
+            holding_key_code_prev = nil
+            holding_prev_has_been_processed = true
+            # pass through
+          elsif current_key_state == 0 and not (holding_key_code and current_key_code == holding_key_code )
             next
           end
 
           if holding_combination_has_processed and (not holding_key_code.nil?) and current_key_code == holding_key_code and current_key_state == 0
-            # if Time.now - holding_started_time > holding_check_span
-              if $is_debug_verbose
-                print "( holding time = "
-                print Time.now - holding_started_time
-                print " )"
-                puts
-                puts "( holding ended )"
-              end
-              has_processed_key_flag = true
-              holding_key_code = nil
-              holding_started_time = nil
-              holding_ended_time = nil
-              holding_combination_has_processed = false
-              next
-            # else
-            #   holding_ended_time = Time.now if holding_ended_time.nil?
-            #   puts "( holding WILL end )" if $is_debug_verbose
-            #   next
-            # end
+            if $is_debug_verbose
+              print "( holding time = "
+              print Time.now - holding_started_time
+              print " )"
+              puts
+              puts "( holding ended )"
+            end
+            has_processed_key_flag = true
+            holding_key_code = nil
+            holding_started_time = nil
+            holding_combination_has_processed = false
+            next
           end
 
           if holding_combination_has_processed and current_key_code != holding_key_code and current_key_state == 0
@@ -800,22 +796,17 @@ def main
 
           if has_processed_key_flag and (not holding_combination_has_processed) and current_key_code != holding_key_code
             holding_combination_has_processed = true
+            holding_prev_has_been_processed = true
             puts "( holding combination processed )" if $is_debug_verbose
           end
 
           if (not holding_key_code.nil?) and current_key_code == holding_key_code and current_key_state == 0
-            # if Time.now - holding_started_time > holding_check_span
-              has_processed_key_flag = true
-              holding_key_code = nil
-              holding_started_time = nil
-              holding_ended_time = nil
-              holding_combination_has_processed = false
-              puts "( holding ended )" if $is_debug_verbose
-              next
-            # else
-            #   holding_ended_time = Time.now if holding_ended_time.nil?
-            #   puts "( holding WILL end )" if $is_debug_verbose
-            # end
+            has_processed_key_flag = true
+            holding_key_code = nil
+            holding_started_time = nil
+            holding_combination_has_processed = false
+            puts "( holding ended )" if $is_debug_verbose
+            next
           end
 
         else
