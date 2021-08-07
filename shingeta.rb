@@ -178,6 +178,32 @@ $yamabuki_key_map = {
   :x => :KEY_X,
   :y => :KEY_Y,
   :z => :KEY_Z,
+  :A => [:KEY_A],
+  :B => [:KEY_B],
+  :C => [:KEY_C],
+  :D => [:KEY_D],
+  :E => [:KEY_E],
+  :F => [:KEY_F],
+  :G => [:KEY_G],
+  :H => [:KEY_H],
+  :I => [:KEY_I],
+  :J => [:KEY_J],
+  :K => [:KEY_K],
+  :L => [:KEY_L],
+  :M => [:KEY_M],
+  :N => [:KEY_N],
+  :O => [:KEY_O],
+  :P => [:KEY_P],
+  :Q => [:KEY_Q],
+  :R => [:KEY_R],
+  :S => [:KEY_S],
+  :T => [:KEY_T],
+  :U => [:KEY_U],
+  :V => [:KEY_V],
+  :W => [:KEY_W],
+  :X => [:KEY_X],
+  :Y => [:KEY_Y],
+  :Z => [:KEY_Z],
   :"0" => :KEY_0,
   :"1" => :KEY_1,
   :"2" => :KEY_2,
@@ -315,7 +341,9 @@ def get_yamabuki_key_str(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_s
   if pos.nil?
     nil
   else
-    return yamabuki_setting[fn_mode][fn_mode_type][pos[0]][pos[1]]
+    ss = yamabuki_setting[fn_mode][fn_mode_type]
+    return ss[pos[0]][pos[1]] if (not ss.nil?)
+    nil
   end
 end
 
@@ -349,17 +377,21 @@ def process_yamabuki_key(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_s
       end
       # p key
       s0 = zen_to_han(key)
-      # p s0
+      #p s0
       hr_code = $yamabuki_key_map[s0.to_sym]
+      #p hr_code if $is_debug_verbose
 
-      # p hr_code
       unless hr_code.nil?
         is_shift_internal = false
 
         if hr_code.instance_of?(Array)
           is_shift_internal = true
           hr_code = hr_code[0]
-        end
+	end
+
+	# if fn_mode == :EISU and fn_mode_type == :SHIFT
+	#  is_shift_internal = true
+	# end
 
         code = get_revdev_code(hr_code)
 
@@ -386,8 +418,10 @@ def process_yamabuki_key(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_s
 
             ie.code = current_key_code
           else
+            current_key_code = ie.code
             ie.code = code
             uinput_write_input ie
+            ie.code = current_key_code
           end
 
           release_shift if is_shift_internal
@@ -475,6 +509,8 @@ def main
   uinput_device_path = '/dev/uinput'
   setting_path = 'setting.yab'
   is_grab = true
+  verbose_flag = false
+  debug_flag = false
   OptionParser.new do |opt|
     opt.on '-e PATH', '--event PATH', String do |s|
       event_device_path = s
@@ -491,6 +527,12 @@ def main
     opt.on '-h', '--help' do
       puts USAGE
       exit false
+    end
+    opt.on '-v', '--verbose' do
+      verbose_flag = true
+    end
+    opt.on '-d', '--debug' do
+      debug_flag = true
     end
     opt.parse! ARGV
   end
@@ -570,8 +612,8 @@ def main
   is_right_oya_shift = false
   is_alt = false
 
-  $is_debug = false
-  $is_debug_verbose = false
+  $is_debug = debug_flag
+  $is_debug_verbose = verbose_flag
   
   is_kana = false
   # is_kana = true
