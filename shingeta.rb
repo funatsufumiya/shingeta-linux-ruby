@@ -339,7 +339,7 @@ def process_yamabuki_key(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_s
   unless key_str.nil?
     key_list = key_str.chars
 
-    p key_list
+    p key_list if $is_debug_verbose
 
     key_list.each do |key|
       if key == "無"
@@ -569,9 +569,12 @@ def main
   is_left_oya_shift = false
   is_right_oya_shift = false
   is_alt = false
+
+  $is_debug = false
+  $is_debug_verbose = false
   
-  # is_kana = false
-  is_kana = true
+  is_kana = false
+  # is_kana = true
 
   holding_check_span = 0.14
 
@@ -609,6 +612,11 @@ def main
       elsif ie.hr_code == :KEY_BACKSPACE
         has_processed_key_flag = false
       elsif ie.hr_code == :KEY_SPACE
+        if is_ctrl and ie.value == 1 
+          is_kana = (not is_kana)
+          puts "kana: #{is_kana}"
+        end
+
         has_processed_key_flag = false
       elsif ie.hr_code == :KEY_ESC
         has_processed_key_flag = false
@@ -622,6 +630,16 @@ def main
         is_alt = ( ie.value == 1 )
       else
 
+        # if ie.hr_code == :KEY_SPACE and ie.value == 1 and is_ctrl
+        #   is_kana = (not is_kana)
+        #   puts "kana: #{is_kana}"
+        # end
+
+        if ie.hr_code == :KEY_M and ie.value == 1 and is_ctrl and is_alt and (is_left_shift or is_right_shift)
+          is_kana = (not is_kana)
+          puts "kana: #{is_kana}"
+        end
+
         if ie.hr_code == :KEY_C and ie.value == 1 and is_ctrl and is_alt and (is_left_shift or is_right_shift)
           puts "Ctrl-Alt-Shift-C pressed!"
           destroy.call
@@ -634,7 +652,7 @@ def main
 
           if (not holding_key_code.nil?) and (not holding_ended_time.nil?)
             if Time.now - holding_started_time > holding_check_span
-              puts "( holding ended )"
+              puts "( holding ended )" if $is_debug_verbose
               has_processed_key_flag = true
               holding_key_code = nil
               holding_started_time = nil
@@ -642,10 +660,12 @@ def main
               holding_combination_has_processed = false
               next
             else
-              print "( holding time = "
-              print Time.now - holding_started_time
-              print " )"
-              puts
+              if $is_debug_verbose
+                print "( holding time = "
+                print Time.now - holding_started_time
+                print " )"
+                puts
+              end
             end
           end
 
@@ -658,10 +678,12 @@ def main
             holding_key_code = ie.hr_code
             holding_started_time = Time.now
 
-            print "( holding started "
-            print holding_key_code
-            print " )"
-            puts
+            if $is_debug_verbose
+              print "( holding started "
+              print holding_key_code
+              print " )"
+              puts
+            end
 
             next
           end
@@ -671,28 +693,34 @@ def main
           _holding_key_code = (not holding_combination_has_processed) ? holding_key_code : nil
 
           unless holding_key_code.nil?
-            print "holding = "
-            print holding_key_code
-            if holding_combination_has_processed
-              print " (processed)"
+            if $is_debug_verbose
+              print "holding = "
+              print holding_key_code
+              if holding_combination_has_processed
+                print " (processed)"
+              end
+              print ", "
             end
-            print ", "
           end
 
-          print "key_code = "
-          print current_key_code
-          print " ( state = "
-          print current_key_state
-          print " )"
-          puts
+          if $is_debug_verbose
+            print "key_code = "
+            print current_key_code
+            print " ( state = "
+            print current_key_state
+            print " )"
+            puts
+          end
 
           if holding_combination_has_processed and (not holding_key_code.nil?) and current_key_code == holding_key_code and current_key_state == 0
             if Time.now - holding_started_time > holding_check_span
-              print "( holding time = "
-              print Time.now - holding_started_time
-              print " )"
-              puts
-              puts "( holding ended )"
+              if $is_debug_verbose
+                print "( holding time = "
+                print Time.now - holding_started_time
+                print " )"
+                puts
+                puts "( holding ended )"
+              end
               has_processed_key_flag = true
               holding_key_code = nil
               holding_started_time = nil
@@ -701,21 +729,24 @@ def main
               next
             else
               holding_ended_time = Time.now if holding_ended_time.nil?
-              puts "( holding WILL end )"
+              puts "( holding WILL end )" if $is_debug_verbose
               next
             end
           end
 
           if holding_combination_has_processed and current_key_code != holding_key_code and current_key_state == 0
-            puts "( holding already processed. ignored. )"
+            puts "( holding already processed. ignored. )" if $is_debug_verbose
             next
           end
 
+          # ===
           has_processed_key_flag = process_key(ie, _holding_key_code, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
-        
-          if has_processed_key_flag and (not holding_combination_has_processed)
+          # ===
+
+
+          if has_processed_key_flag and (not holding_combination_has_processed) and current_key_code != holding_key_code
             holding_combination_has_processed = true
-            puts "( holding combination processed )"
+            puts "( holding combination processed )" if $is_debug_verbose
           end
 
           if (not holding_key_code.nil?) and current_key_code == holding_key_code and current_key_state == 0
@@ -725,11 +756,11 @@ def main
               holding_started_time = nil
               holding_ended_time = nil
               holding_combination_has_processed = false
-              puts "( holding ended )"
+              puts "( holding ended )" if $is_debug_verbose
               next
             else
               holding_ended_time = Time.now if holding_ended_time.nil?
-              puts "( holding WILL end )"
+              puts "( holding WILL end )" if $is_debug_verbose
             end
           end
 
