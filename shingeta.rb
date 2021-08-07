@@ -124,7 +124,7 @@ def parse_yamabuki_setting lst
         fn_line_num = 0
       elsif m = s.match(/^<(.)>$/) # FIXME
         lbl = m[1]
-        fn_mode = :ROMAJI
+        fn_mode = :ROMAJI # FIXME
         fn_mode_type = lbl.to_sym
         fn_line_num = 0
       else
@@ -223,6 +223,7 @@ $yamabuki_key_map = {
   :"_" => [:KEY_RO],
   :"後" => :KEY_BACKSPACE,
   :"入" => :KEY_ENTER,
+  :"無" => :NOTHING,
 }
 
 $yamabuki_key_str_pos_map = {
@@ -280,12 +281,41 @@ def get_yamabuki_key_str_pos(hr_code)
   $yamabuki_key_str_pos_map[hr_code]
 end
 
-def get_yamabuki_key_str(ie, fn_mode, fn_mode_type, yamabuki_setting)
+def get_yamabuki_key_str(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_setting)
+  if ie.hr_code != holding_key_code
+    if holding_key_code and fn_mode == :ROMAJI
+      pos = get_yamabuki_key_str_pos(ie.hr_code)
+      layer = $yamabuki_key_map.key holding_key_code
+
+      # print "layer = "
+      # p layer
+      # p holding_key_code
+
+      unless layer.nil? and pos.nil?
+        if yamabuki_setting[fn_mode][layer]
+          key_str = yamabuki_setting[fn_mode][layer][pos[0]][pos[1]]
+          return key_str if (not key_str.nil? and key_str != "無")
+        end
+      end
+
+      # NOTE: Check Inverted Layer
+      pos = get_yamabuki_key_str_pos(holding_key_code)
+      layer = $yamabuki_key_map.key ie.hr_code
+
+      unless layer.nil? and pos.nil?
+        if yamabuki_setting[fn_mode][layer]
+          key_str = yamabuki_setting[fn_mode][layer][pos[0]][pos[1]]
+          return key_str if (not key_str.nil? and key_str != "無")
+        end
+      end
+    end
+  end
+
   pos = get_yamabuki_key_str_pos(ie.hr_code)
   if pos.nil?
     nil
   else
-    yamabuki_setting[fn_mode][fn_mode_type][pos[0]][pos[1]]
+    return yamabuki_setting[fn_mode][fn_mode_type][pos[0]][pos[1]]
   end
 end
 
@@ -297,16 +327,26 @@ def get_revdev_code(hr_code)
   Revdev::REVERSE_MAPS[:KEY].key hr_code
 end
 
-def prosess_yamabuki_key(ie, fn_mode, fn_mode_type, yamabuki_setting)
+def process_yamabuki_key(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_setting)
   has_processed = false
 
-  key_str = get_yamabuki_key_str(ie, fn_mode, fn_mode_type, yamabuki_setting)
+  # unless prev_ie.nil?
+  #   p prev_ie.hr_code
+  # end
+
+  key_str = get_yamabuki_key_str(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_setting)
+
   unless key_str.nil?
     key_list = key_str.chars
 
     p key_list
 
     key_list.each do |key|
+      if key == "無"
+        # puts "got mu"
+        has_processed = true
+        next
+      end
       # p key
       s0 = zen_to_han(key)
       # p s0
@@ -328,8 +368,29 @@ def prosess_yamabuki_key(ie, fn_mode, fn_mode_type, yamabuki_setting)
 
           press_shift if is_shift_internal
           
-          ie.code = code
-          uinput_write_input ie
+          if fn_mode == :ROMAJI
+            current_key_code = ie.code
+            current_key_hrcode = ie.hr_code
+            current_key_state = ie.value
+
+            ie.code = code
+            # puts "current_key_code = #{current_key_code}, holding_key_code = #{holding_key_code}, current_key_state = #{current_key_state}"
+            if current_key_hrcode == holding_key_code and current_key_state == 0
+              # puts "yep"
+              ie.value = 1
+              uinput_write_input ie
+              ie.value = 0
+              uinput_write_input ie
+              ie.value = current_key_state
+            else
+              uinput_write_input ie
+            end
+
+            ie.code = current_key_code
+          else
+            ie.code = code
+            uinput_write_input ie
+          end
 
           release_shift if is_shift_internal
 
@@ -342,7 +403,7 @@ def prosess_yamabuki_key(ie, fn_mode, fn_mode_type, yamabuki_setting)
   return has_processed
 end
 
-def prosess_key(ie, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
+def process_key(ie, holding_key_code, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
   if is_ctrl
     return false
   else
@@ -359,7 +420,7 @@ def prosess_key(ie, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, i
 
     fn_mode = is_kana ? :ROMAJI : :EISU
 
-    return prosess_yamabuki_key(ie, fn_mode, fn_mode_type, yamabuki_setting)
+    return process_yamabuki_key(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_setting)
   end
 
   false
@@ -385,6 +446,16 @@ def uinput_write(type, code, value)
   event[:code] = code
   event[:value] = value
   $uinput_file.syswrite(event.pointer.read_bytes(event.size))
+end
+
+def copy_ie(ie)
+  event = Revdev::InputEvent.new
+  # event[:time] = LinuxInput::Timeval.new # FIXME
+  # event[:time][:tv_sec] = Time.now.to_i # FIXME
+  event.type = ie.type
+  event.code = ie.code
+  event.value = ie.value
+  return event
 end
 
 def press_shift()
@@ -504,6 +575,11 @@ def main
   # is_kana = false
   is_kana = true
 
+  holding_key_code = nil
+  holding_started_time = Time.now - 9999
+  holding_combination_has_processed = false
+  holding_combination_triggered_key_code = nil
+
   loop do
     ie = evdev.read_input_event
     t = ie.hr_type ? "#{ie.hr_type.to_s}(#{ie.type})" : ie.type
@@ -530,17 +606,91 @@ def main
       elsif ie.hr_code == :KEY_HENKAN
         is_right_oya_shift = ( ie.value == 1 )
         has_processed_key_flag = true
+      elsif ie.hr_code == :KEY_BACKSPACE
+        has_processed_key_flag = false
+      elsif ie.hr_code == :KEY_SPACE
+        has_processed_key_flag = false
+      elsif ie.hr_code == :KEY_ESC
+        has_processed_key_flag = false
+      elsif ie.hr_code == :KEY_CAPSLOCK
+        has_processed_key_flag = false
+      elsif ie.hr_code == :KEY_ENTER
+        has_processed_key_flag = false
+      elsif ie.hr_code == :KEY_LEFT or ie.hr_code == :KEY_RIGHT or ie.hr_code == :KEY_DOWN or ie.hr_code == :KEY_UP or ie.hr_code == :KEY_TAB
+        has_processed_key_flag = false
       elsif ie.hr_code == :KEY_LEFTALT or ie.hr_code == :KEY_RIGHTALT
         is_alt = ( ie.value == 1 )
       else
-        has_processed_key_flag = prosess_key(ie, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
-        # puts "type:#{t}	code:#{c}	value:#{v}"
-      end
 
-      if ie.hr_code == :KEY_C and ie.value == 1 and is_ctrl and is_alt and (is_left_shift or is_right_shift)
-        puts "Ctrl-Alt-Shift-C pressed!"
-        destroy.call
-        has_processed_key_flag = false
+        if ie.hr_code == :KEY_C and ie.value == 1 and is_ctrl and is_alt and (is_left_shift or is_right_shift)
+          puts "Ctrl-Alt-Shift-C pressed!"
+          destroy.call
+          has_processed_key_flag = false
+        end
+
+        if is_kana
+          if ie.value == 1 and holding_key_code.nil?
+            holding_key_code = ie.hr_code
+            holding_started_time = Time.now
+            next
+          end
+
+          if holding_combination_has_processed and ie.hr_code == holding_key_code and ie.value == 0
+            has_processed_key_flag = true
+            holding_key_code = nil
+            holding_started_time = nil
+            holding_combination_has_processed = false
+            holding_combination_triggered_key_code = nil
+            puts "already processed holding combination. so ignored releasing #{ie.hr_code}"
+            next
+          end
+
+          if holding_combination_has_processed and ie.hr_code != holding_key_code and ie.hr_code != holding_combination_triggered_key_code
+            has_processed_key_flag = true
+            holding_key_code = nil
+            holding_started_time = nil
+            holding_combination_has_processed = false
+            holding_combination_triggered_key_code = nil
+            puts "triple key pressed, reset holding"
+          end
+
+          unless holding_key_code.nil?
+            print "holding_key_code = "
+            print holding_key_code
+            print ", "
+          end
+
+          print "key_code = "
+          print ie.hr_code
+          print " ( state = "
+          print ie.value
+          print " )"
+          puts
+
+          current_key_code = ie.hr_code
+          current_key_state = ie.value
+
+          has_processed_key_flag = process_key(ie, holding_key_code, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
+            
+          if has_processed_key_flag and (not holding_key_code.nil?)
+            holding_combination_has_processed = true
+            holding_combination_triggered_key_code = current_key_code
+          end
+
+          if (not holding_key_code.nil?) and current_key_code == holding_key_code and current_key_state == 0
+            has_processed_key_flag = true
+            holding_key_code = nil
+            holding_started_time = nil
+            holding_combination_has_processed = false
+            holding_combination_triggered_key_code = nil
+            puts "holding_key_code has been reset"
+            next
+          end
+        else
+          has_processed_key_flag = process_key(ie, nil, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
+        end
+
+        # puts "type:#{t}	code:#{c}	value:#{v}"
       end
 
       if has_processed_key_flag == false
