@@ -370,21 +370,19 @@ def process_yamabuki_key(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_s
           
           if fn_mode == :ROMAJI
             current_key_code = ie.code
-            current_key_hrcode = ie.hr_code
+            # current_key_hrcode = ie.hr_code
             current_key_state = ie.value
 
             ie.code = code
-            # puts "current_key_code = #{current_key_code}, holding_key_code = #{holding_key_code}, current_key_state = #{current_key_state}"
-            if current_key_hrcode == holding_key_code and current_key_state == 0
-              # puts "yep"
+            # if current_key_hrcode == holding_key_code and current_key_state == 0
               ie.value = 1
               uinput_write_input ie
               ie.value = 0
               uinput_write_input ie
               ie.value = current_key_state
-            else
-              uinput_write_input ie
-            end
+            # else
+              # uinput_write_input ie
+            # end
 
             ie.code = current_key_code
           else
@@ -575,10 +573,12 @@ def main
   # is_kana = false
   is_kana = true
 
+  holding_check_span = 0.14
+
   holding_key_code = nil
   holding_started_time = Time.now - 9999
+  holding_ended_time = nil
   holding_combination_has_processed = false
-  holding_combination_triggered_key_code = nil
 
   loop do
     ie = evdev.read_input_event
@@ -629,63 +629,110 @@ def main
         end
 
         if is_kana
-          if ie.value == 1 and holding_key_code.nil?
+          current_key_code = ie.hr_code
+          current_key_state = ie.value
+
+          if (not holding_key_code.nil?) and (not holding_ended_time.nil?)
+            if Time.now - holding_started_time > holding_check_span
+              puts "( holding ended )"
+              has_processed_key_flag = true
+              holding_key_code = nil
+              holding_started_time = nil
+              holding_ended_time = nil
+              holding_combination_has_processed = false
+              next
+            else
+              print "( holding time = "
+              print Time.now - holding_started_time
+              print " )"
+              puts
+            end
+          end
+
+          if current_key_state == 1 and (not holding_key_code)
+            holding_key_code = nil
+            holding_started_time = nil
+            holding_ended_time = nil
+            holding_combination_has_processed = false
+
             holding_key_code = ie.hr_code
             holding_started_time = Time.now
+
+            print "( holding started "
+            print holding_key_code
+            print " )"
+            puts
+
             next
           end
 
-          if holding_combination_has_processed and ie.hr_code == holding_key_code and ie.value == 0
-            has_processed_key_flag = true
-            holding_key_code = nil
-            holding_started_time = nil
-            holding_combination_has_processed = false
-            holding_combination_triggered_key_code = nil
-            puts "already processed holding combination. so ignored releasing #{ie.hr_code}"
-            next
-          end
-
-          if holding_combination_has_processed and ie.hr_code != holding_key_code and ie.hr_code != holding_combination_triggered_key_code
-            has_processed_key_flag = true
-            holding_key_code = nil
-            holding_started_time = nil
-            holding_combination_has_processed = false
-            holding_combination_triggered_key_code = nil
-            puts "triple key pressed, reset holding"
-          end
+          # if current_key_state == 0 or ( current_key_state == 1 and (not holding_combination_has_processed) )
+          
+          _holding_key_code = (not holding_combination_has_processed) ? holding_key_code : nil
 
           unless holding_key_code.nil?
-            print "holding_key_code = "
+            print "holding = "
             print holding_key_code
+            if holding_combination_has_processed
+              print " (processed)"
+            end
             print ", "
           end
 
           print "key_code = "
-          print ie.hr_code
+          print current_key_code
           print " ( state = "
-          print ie.value
+          print current_key_state
           print " )"
           puts
 
-          current_key_code = ie.hr_code
-          current_key_state = ie.value
+          if holding_combination_has_processed and (not holding_key_code.nil?) and current_key_code == holding_key_code and current_key_state == 0
+            if Time.now - holding_started_time > holding_check_span
+              print "( holding time = "
+              print Time.now - holding_started_time
+              print " )"
+              puts
+              puts "( holding ended )"
+              has_processed_key_flag = true
+              holding_key_code = nil
+              holding_started_time = nil
+              holding_ended_time = nil
+              holding_combination_has_processed = false
+              next
+            else
+              holding_ended_time = Time.now if holding_ended_time.nil?
+              puts "( holding WILL end )"
+              next
+            end
+          end
 
-          has_processed_key_flag = process_key(ie, holding_key_code, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
-            
-          if has_processed_key_flag and (not holding_key_code.nil?)
+          if holding_combination_has_processed and current_key_code != holding_key_code and current_key_state == 0
+            puts "( holding already processed. ignored. )"
+            next
+          end
+
+          has_processed_key_flag = process_key(ie, _holding_key_code, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
+        
+          if has_processed_key_flag and (not holding_combination_has_processed)
             holding_combination_has_processed = true
-            holding_combination_triggered_key_code = current_key_code
+            puts "( holding combination processed )"
           end
 
           if (not holding_key_code.nil?) and current_key_code == holding_key_code and current_key_state == 0
-            has_processed_key_flag = true
-            holding_key_code = nil
-            holding_started_time = nil
-            holding_combination_has_processed = false
-            holding_combination_triggered_key_code = nil
-            puts "holding_key_code has been reset"
-            next
+            if Time.now - holding_started_time > holding_check_span
+              has_processed_key_flag = true
+              holding_key_code = nil
+              holding_started_time = nil
+              holding_ended_time = nil
+              holding_combination_has_processed = false
+              puts "( holding ended )"
+              next
+            else
+              holding_ended_time = Time.now if holding_ended_time.nil?
+              puts "( holding WILL end )"
+            end
           end
+
         else
           has_processed_key_flag = process_key(ie, nil, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
         end
