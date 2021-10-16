@@ -74,16 +74,16 @@ end
 def parse_yamabuki_setting lst
   romaji_maps =
     {"ローマ字シフト無し" => :NO_SHIFT,
-    "ローマ字左親指シフト" => :LEFT_OYA_SHIFT,
-    "ローマ字右親指シフト" => :RIGHT_OYA_SHIFT,
-    "ローマ字小指シフト" => :SHIFT}
+     "ローマ字左親指シフト" => :LEFT_OYA_SHIFT,
+     "ローマ字右親指シフト" => :RIGHT_OYA_SHIFT,
+     "ローマ字小指シフト" => :SHIFT}
   romaji_labels = romaji_maps.keys
 
   eisu_maps =
     {"英数シフト無し" => :NO_SHIFT,
-    "英数左親指シフト" => :LEFT_OYA_SHIFT,
-    "英数右親指シフト" => :RIGHT_OYA_SHIFT,
-    "英数小指シフト" => :SHIFT}
+     "英数左親指シフト" => :LEFT_OYA_SHIFT,
+     "英数右親指シフト" => :RIGHT_OYA_SHIFT,
+     "英数小指シフト" => :SHIFT}
   eisu_labels = eisu_maps.keys
 
   result = {}
@@ -409,11 +409,11 @@ def process_yamabuki_key(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_s
         if hr_code.instance_of?(Array)
           is_shift_internal = true
           hr_code = hr_code[0]
-	end
+        end
 
-	# if fn_mode == :EISU and fn_mode_type == :SHIFT
-	#  is_shift_internal = true
-	# end
+        # if fn_mode == :EISU and fn_mode_type == :SHIFT
+        #  is_shift_internal = true
+        # end
 
         code = get_revdev_code(hr_code)
 
@@ -421,7 +421,7 @@ def process_yamabuki_key(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_s
           # p code
 
           press_shift if is_shift_internal
-          
+
           if fn_mode == :ROMAJI
             current_key_code = ie.code
             # current_key_hrcode = ie.hr_code
@@ -429,13 +429,13 @@ def process_yamabuki_key(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_s
 
             ie.code = code
             # if current_key_hrcode == holding_key_code and current_key_state == 0
-              ie.value = 1
-              uinput_write_input ie
-              ie.value = 0
-              uinput_write_input ie
-              ie.value = current_key_state
+            ie.value = 1
+            uinput_write_input ie
+            ie.value = 0
+            uinput_write_input ie
+            ie.value = current_key_state
             # else
-              # uinput_write_input ie
+            # uinput_write_input ie
             # end
 
             ie.code = current_key_code
@@ -590,12 +590,12 @@ def main
 
   ufile.syswrite(device.pointer.read_bytes(device.size))
   ufile.ioctl(Uinput::UI_DEV_CREATE)
-  
+
   efile = File.new event_device_path, 'r+' 
   evdev = EventDevice.new efile
   # puts "## Device Name: #{evdev.device_name}"
   puts "spec_type: #{spec_type}" if $DEBUG
-  
+
   c_grab = 1074021776
 
   destroy = lambda do |arg|
@@ -636,7 +636,7 @@ def main
 
   $is_debug = debug_flag
   $is_debug_verbose = verbose_flag
-  
+
   is_kana = false
   # is_kana = true
 
@@ -658,9 +658,9 @@ def main
     if ie.hr_type == :EV_KEY
 
       has_processed_key_flag = false
-      
+
       # if ie.hr_code == 
-      if ie.hr_code == :KEY_LEFTCTRL or ie.hr_code == :KEY_RIGHTCTRL
+      if ie.hr_code == :KEY_LEFTCTRL or ie.hr_code == :KEY_RIGHTCTRL or ie.hr_code == :KEY_CAPSLOCK
         is_ctrl = ( ie.value == 1 )
       elsif ie.hr_code == :KEY_LEFTSHIFT
         is_left_shift = ( ie.value == 1 )
