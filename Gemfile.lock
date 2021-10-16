@@ -1,0 +1,23 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    ffi (1.15.4)
+    linux_input (1.1.1)
+      ffi (~> 1.9)
+    nkf (0.1.1)
+    optparse (0.1.1)
+    revdev (0.2.1)
+    uinput (1.2.0)
+      linux_input (~> 1.0)
+
+PLATFORMS
+  x86_64-linux
+
+DEPENDENCIES
+  nkf
+  optparse
+  revdev
+  uinput
+
+BUNDLED WITH
+   2.2.29
