@@ -4,12 +4,11 @@
 require "revdev"
 require "optparse"
 require "uinput"
-require "nkf"
 
 USAGE = <<__EOF
 usage:
     $ #{$0} -e [event_device] -u [uinput_device] -s [setting_file]
-  shingeta keyboard emulator
+  simple dual keyboard pass through to uinput
 
 example:
     $ #{$0} -e /dev/input/event2 -u /dev/uinput -s setting.yab
