@@ -701,8 +701,10 @@ def main
         is_ctrl = ( ie.value == 1 )
       elsif ie.hr_code == :KEY_LEFTSHIFT
         is_left_shift = ( ie.value == 1 )
+        has_processed_key_flag = true
       elsif ie.hr_code == :KEY_RIGHTSHIFT
         is_right_shift = ( ie.value == 1 )
+        has_processed_key_flag = true
       elsif ie.hr_code == :KEY_MUHENKAN
         is_left_oya_shift = ( ie.value == 1 )
       elsif ie.hr_code == :KEY_HENKAN
