@@ -192,11 +192,7 @@ def main
       end
     }
   end
-
-  # thread1.join
-  # thread2.join if evdev_sub
-  # exit
-
+  
   loop do
     # ie = evdev.read_input_event
     ie = queue.pop
