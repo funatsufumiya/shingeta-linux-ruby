@@ -7,11 +7,11 @@ require "uinput"
 
 USAGE = <<__EOF
 usage:
-    $ #{$0} -e [event_device] -u [uinput_device] -s [setting_file]
+    $ #{$0} -e [event_device] -E [event_device_sub] -u [uinput_device]
   simple dual keyboard pass through to uinput
 
 example:
-    $ #{$0} -e /dev/input/event2 -u /dev/uinput -s setting.yab
+    $ #{$0} -e /dev/input/event3 -E /dev/input/event16 -u /dev/uinput
 
 options:
   -e, --event [path]:
