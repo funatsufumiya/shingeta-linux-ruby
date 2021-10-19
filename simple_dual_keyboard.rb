@@ -192,13 +192,13 @@ def main
       end
     }
   end
-  
+
   loop do
     # ie = evdev.read_input_event
     ie = queue.pop
-    t = ie.hr_type ? "#{ie.hr_type.to_s}(#{ie.type})" : ie.type
-    c = ie.hr_code ? "#{ie.hr_code.to_s}(#{ie.code})" : ie.code
-    v = ie.hr_value ? "#{ie.hr_value.to_s}(#{ie.value})" : ie.value
+    # t = ie.hr_type ? "#{ie.hr_type.to_s}(#{ie.type})" : ie.type
+    # c = ie.hr_code ? "#{ie.hr_code.to_s}(#{ie.code})" : ie.code
+    # v = ie.hr_value ? "#{ie.hr_value.to_s}(#{ie.value})" : ie.value
     # puts "type:#{t}	code:#{c}	value:#{v}"
 
     uinput_write_input ie
