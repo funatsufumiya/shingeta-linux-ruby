@@ -422,9 +422,9 @@ def process_yamabuki_key(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_s
         unless code.nil?
           # p code
 
-          press_left_shift if is_shift_internal and not (is_left_shift_physical or is_right_shift_physical)
-          release_left_shift if not is_shift_internal and is_left_shift_physical
-          release_right_shift if not is_shift_internal and is_right_shift_physical
+          press_left_shift if is_shift_internal or (is_left_shift_physical or is_right_shift_physical)
+          release_left_shift if not is_shift_internal #and is_left_shift_physical
+          release_right_shift if not is_shift_internal #and is_right_shift_physical
 
           if fn_mode == :ROMAJI
             current_key_code = ie.code
@@ -451,8 +451,8 @@ def process_yamabuki_key(ie, holding_key_code, fn_mode, fn_mode_type, yamabuki_s
           end
 
           release_left_shift if is_shift_internal
-          press_left_shift if not is_shift_internal and is_left_shift_physical
-          press_right_shift if not is_shift_internal and is_right_shift_physical
+          # press_left_shift if not is_shift_internal and is_left_shift_physical
+          # press_right_shift if not is_shift_internal and is_right_shift_physical
 
           has_processed = true
         end
@@ -717,34 +717,22 @@ def main
         is_ctrl = ( ie.value == 1 )
       elsif ie.hr_code == :KEY_LEFTSHIFT
         is_left_shift = ( ie.value == 1 )
-        # has_processed_key_flag = true if ie.value == 1
       elsif ie.hr_code == :KEY_RIGHTSHIFT
         is_right_shift = ( ie.value == 1 )
-        # has_processed_key_flag = true if ie.value == 1
       elsif ie.hr_code == :KEY_MUHENKAN
         is_left_oya_shift = ( ie.value == 1 )
       elsif ie.hr_code == :KEY_HENKAN
         is_right_oya_shift = ( ie.value == 1 )
       elsif ie.hr_code == :KEY_BACKSPACE
-        has_processed_key_flag = false
       elsif ie.hr_code == :KEY_SPACE
         if is_ctrl and ie.value == 1 
           is_kana = (not is_kana)
           puts "kana: #{is_kana}"
         end
-
-        has_processed_key_flag = false
       elsif ie.hr_code == :KEY_ESC
-        # press_shift if is_left_shift or is_right_shift
-        has_processed_key_flag = false
       elsif ie.hr_code == :KEY_CAPSLOCK
-        has_processed_key_flag = false
       elsif ie.hr_code == :KEY_ENTER
-        # press_shift if is_left_shift or is_right_shift
-        has_processed_key_flag = false
       elsif ie.hr_code == :KEY_LEFT or ie.hr_code == :KEY_RIGHT or ie.hr_code == :KEY_DOWN or ie.hr_code == :KEY_UP or ie.hr_code == :KEY_TAB
-        # press_shift if is_left_shift or is_right_shift
-        has_processed_key_flag = false
       elsif ie.hr_code == :KEY_LEFTALT or ie.hr_code == :KEY_RIGHTALT
         is_alt = ( ie.value == 1 )
       else
