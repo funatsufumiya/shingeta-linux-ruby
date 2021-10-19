@@ -17,6 +17,8 @@ example:
 options:
   -e, --event [path]:
       event device (Default: /dev/input/event0)
+  -E, --eventsub [path]:
+      event sub device (for dual keyboard) (Default: none)
   -u, --uinput [path]:
       uinput device (Default: /dev/uinput)
   -s, --setting [path]:
@@ -528,6 +530,7 @@ def main
   include Revdev
 
   event_device_path = '/dev/input/event0'
+  event_device_sub_path = nil
   uinput_device_path = '/dev/uinput'
   setting_path = 'setting.yab'
   is_grab = true
@@ -536,6 +539,9 @@ def main
   OptionParser.new do |opt|
     opt.on '-e PATH', '--event PATH', String do |s|
       event_device_path = s
+    end
+    opt.on '-E PATH', '--eventsub PATH', String do |s|
+      event_device_sub_path = s
     end
     opt.on '-u PATH', '--uinput PATH', String do |s|
       uinput_device_path = s
@@ -593,18 +599,32 @@ def main
 
   efile = File.new event_device_path, 'r+' 
   evdev = EventDevice.new efile
+
+  efile_sub = nil
+  evdev_sub = nil
+
+  if event_device_sub_path
+    efile_sub = File.new event_device_sub_path, 'r+' 
+    evdev_sub = EventDevice.new efile_sub
+  end
+
+  is_exitting = false
+
   # puts "## Device Name: #{evdev.device_name}"
   puts "spec_type: #{spec_type}" if $DEBUG
 
   c_grab = 1074021776
 
   destroy = lambda do |arg|
-    # evdev.ungrab if is_grab
-    efile.ioctl c_grab, 0 if is_grab
-    puts "ungrab" if is_grab
+    is_exitting = true
+    if is_grab
+      efile.ioctl c_grab, 0
+      efile_sub.ioctl c_grab, 0 if efile_sub
+      puts "ungrabbed"
+    end
 
     ufile.ioctl(Uinput::UI_DEV_DESTROY, nil)
-    puts "destroy"
+    puts "destroyed"
 
     exit true
   end
@@ -614,18 +634,10 @@ def main
 
   $uinput_file = ufile
 
-  # uinput_write_input_event = lambda do |ie|
-  #   event = LinuxInput::InputEvent.new
-  #   event[:time] = LinuxInput::Timeval.new
-  #   event[:time][:tv_sec] = Time.now.to_i
-  #   event[:type] = ie.type
-  #   event[:code] = ie.code
-  #   event[:value] = ie.value
-  #   ufile.syswrite(event.pointer.read_bytes(event.size))
-  # end
-
-  efile.ioctl c_grab, 1 if is_grab
-  #evdev.grab if is_grab
+  if is_grab
+    efile.ioctl c_grab, 1
+    efile_sub.ioctl c_grab, 1 if efile_sub
+  end
 
   is_ctrl = false
   is_left_shift = false
@@ -648,12 +660,37 @@ def main
   holding_started_time = Time.now - 9999
   holding_combination_has_processed = false
 
+  queue = Queue.new
+
+  thread1 = Thread.new {
+    loop do
+      break if is_exitting
+      ie = evdev.read_input_event
+      queue.push(ie)
+    end
+  }
+
+  if evdev_sub
+    thread2 = Thread.new {
+      loop do
+        break if is_exitting
+        ie = evdev_sub.read_input_event
+        queue.push(ie)
+      end
+    }
+  end
+
+  # thread1.join
+  # thread2.join if evdev_sub
+  # exit
+
   loop do
-    ie = evdev.read_input_event
+    # ie = evdev.read_input_event
+    ie = queue.pop
     t = ie.hr_type ? "#{ie.hr_type.to_s}(#{ie.type})" : ie.type
     c = ie.hr_code ? "#{ie.hr_code.to_s}(#{ie.code})" : ie.code
     v = ie.hr_value ? "#{ie.hr_value.to_s}(#{ie.value})" : ie.value
-    #puts "type:#{t}	code:#{c}	value:#{v}"
+    # puts "type:#{t}	code:#{c}	value:#{v}"
 
     if ie.hr_type == :EV_KEY
 
@@ -664,16 +701,12 @@ def main
         is_ctrl = ( ie.value == 1 )
       elsif ie.hr_code == :KEY_LEFTSHIFT
         is_left_shift = ( ie.value == 1 )
-        has_processed_key_flag = true
       elsif ie.hr_code == :KEY_RIGHTSHIFT
         is_right_shift = ( ie.value == 1 )
-        has_processed_key_flag = true
       elsif ie.hr_code == :KEY_MUHENKAN
         is_left_oya_shift = ( ie.value == 1 )
-        has_processed_key_flag = true
       elsif ie.hr_code == :KEY_HENKAN
         is_right_oya_shift = ( ie.value == 1 )
-        has_processed_key_flag = true
       elsif ie.hr_code == :KEY_BACKSPACE
         has_processed_key_flag = false
       elsif ie.hr_code == :KEY_SPACE
@@ -711,7 +744,7 @@ def main
           has_processed_key_flag = false
         end
 
-        if is_kana
+        if is_kana and not is_ctrl
           current_key_code = ie.hr_code
           current_key_state = ie.value
 
@@ -796,6 +829,8 @@ def main
           # ===
           has_processed_key_flag = process_key(ie, _holding_key_code, is_ctrl, is_left_shift, is_right_shift, is_left_oya_shift, is_right_oya_shift, is_alt, is_kana, yamabuki_setting)
           # ===
+
+          # puts("has_processed_key_flag: #{has_processed_key_flag}")
 
 
           if has_processed_key_flag and (not holding_combination_has_processed) and current_key_code != holding_key_code
