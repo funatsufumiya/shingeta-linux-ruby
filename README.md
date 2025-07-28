@@ -1,3 +1,9 @@
+## shingeta-linux-ruby
+
+Ubuntu/Debian上で利用できるキーボードエミュレータで、やまぶきRと同じシンタックスをサポートすることを目標にしています。
+現在はまず新下駄配列とProgrommer's Dvorakを動作させることを目標にしていて、まだアーリーステージですが実際に使用することができます。
+
+## Usage
 ```
 usage:
     $ ruby shingeta.rb -e [event_device] -u [uinput_device] -s [setting_file]
@@ -18,11 +24,6 @@ options:
   -g, --grab [bool]:
       grab event or not. (Default: true)
 ```
-
-## これは何？
-
-Ubuntu/Debian上で利用できるキーボードエミュレータで、やまぶきRと同じシンタックスをサポートすることを目標にしています。
-現在はまず新下駄配列とProgrommer's Dvorakを動作させることを目標にしていて、まだアーリーステージですが実際に使用することができます。
 
 ## 課題点
 
