@@ -25,6 +25,10 @@ options:
       grab event or not. (Default: true)
 ```
 
+## 注意点
+
+`/dev/uinput` のないLinuxデバイスでは使用することができません。
+
 ## TODOs
 
 - 同時打鍵判定の改善
