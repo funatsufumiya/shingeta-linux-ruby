@@ -25,9 +25,10 @@ options:
       grab event or not. (Default: true)
 ```
 
-## 課題点
+## TODOs
 
 - 同時打鍵判定の改善
 - 日本語入力システムとの連携 （現在は単に特定キーで切り替え）
 - GUIの整備
 - 自動起動などのサービス化
+- Rust実装など、軽量化
